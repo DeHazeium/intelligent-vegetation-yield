@@ -1,0 +1,22 @@
+# Never commit secrets or firmware credentials
+*secret*
+*.secret
+secrets.*
+.env
+.env.*
+
+# Firmware files don't belong in the web repo (keep the DB secret out)
+*.ino
+*.cpp
+*.h
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
+
+# Backups
+*_backup.*
+index_v*.html
