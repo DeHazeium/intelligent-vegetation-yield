@@ -313,13 +313,35 @@
     setTimeout(()=>show('viewPots'),1100);
   };
 
-  function updateAction(moisture,hoursToWater){
+  // "What to do" — SHORT glanceable verb + timing only.
+  // The full reasoning lives in the situation box, so keep this terse.
+  function updateAction(root, surface, tempNum, hoursToWater){
     const tile=document.getElementById('actionTile'),verb=document.getElementById('actVerb'),when=document.getElementById('actWhen');
     tile.classList.remove('warn','urgent');
-    if(moisture<20){tile.classList.add('urgent');verb.textContent='Water now';when.textContent='Soil is too dry';}
-    else if(moisture<40){tile.classList.add('warn');verb.textContent='Water soon';when.textContent=hoursToWater>0?`~${(+hoursToWater).toFixed(1)}h left`:'Getting dry';}
-    else if(moisture>80){tile.classList.add('warn');verb.textContent='Ease off';when.textContent='Soil is very wet';}
-    else{verb.textContent='All good';when.textContent=hoursToWater>0?`Water in ~${(+hoursToWater).toFixed(0)}h`:'Roots are happy';}
+
+    const R=band(root), S=band(surface);
+    const isDry=b=>(b==='dry'||b==='low');
+    const isWet=b=>(b==='high'||b==='wet');
+    const isOK =b=>(b==='perfect');
+    const hrs=(+hoursToWater);
+    const hStr = hrs>0 ? (hrs<1?`~${Math.round(hrs*60)} min`:`~${hrs.toFixed(hrs<3?1:0)} h`) : '';
+
+    let v='All good', w='', cls='';
+
+    if(isDry(R)){
+      if(root<20){ cls='urgent'; v='Water now'; w=''; }
+      else { cls='warn'; v='Water soon'; w = hStr || ''; }
+    } else if(isOK(R)){
+      if(isWet(S)){ v='Let it drain'; w=''; }
+      else { v='All good'; w = hStr ? `Next: ${hStr}` : ''; }
+    } else { // root wet
+      if(root>85 && surface>85){ cls='urgent'; v='Stop watering'; w=''; }
+      else { cls='warn'; v='Ease off'; w=''; }
+    }
+
+    if(cls) tile.classList.add(cls);
+    verb.textContent=v;
+    when.textContent=w;
   }
 
   // ---- short-term memory so the analysis can see CHANGE over time ----
@@ -477,7 +499,7 @@
 
     // temperature + AI action
     document.getElementById('tempTile').innerHTML=d.temp+'<span>°C</span>';
-    updateAction(d.moisture,d.hoursToWater);
+    updateAction(d.moisture, surface, d.tempNum, d.hoursToWater);
 
     // AI situation box
     const s=analyzeSituation(d.moisture, surface, d.tempNum);
