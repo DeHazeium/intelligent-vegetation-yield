@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>IVY — Smart Pot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sage:#4b6350;--sage-soft:#6f8a74;--sage-tint:#e7ede7;
+    --ink:#1f2723;--ink-soft:#7c8a80;--cream:#eef1ec;--card:#fff;
+    --dark:#232a25;--line:#e3e8e2;
+    --radius:26px;--radius-sm:18px;
+    --shadow:0 12px 40px rgba(45,60,50,.10);--shadow-sm:0 6px 20px rgba(45,60,50,.07);
+    --amber:#c9922f;--red:#c0564f;--green:#3fa564;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',system-ui,sans-serif;background:var(--cream);color:var(--ink);-webkit-font-smoothing:antialiased;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:30px 16px}
+  .display{font-family:'Fraunces',serif}
+  .phone{background:var(--card);border-radius:44px;padding:14px;box-shadow:var(--shadow)}
+  .screen{background:var(--cream);border-radius:32px;overflow:hidden;width:380px;height:760px;position:relative;display:flex;flex-direction:column}
+  @media(max-width:420px){.screen{width:340px;height:720px}}
+  .statusbar{display:flex;justify-content:space-between;align-items:center;padding:16px 22px 6px;font-size:13px;font-weight:600}
+  .conn{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--ink);background:var(--sage-tint);padding:6px 12px;border-radius:20px}
+  .conn .dot{width:8px;height:8px;border-radius:50%;background:var(--sage)}
+  .conn.online{color:#2f6d47}
+  .conn.online .dot{background:var(--green);animation:pulse 2s infinite}
+  .conn.offline{color:#9a4b4b;background:#f3e5e5}
+  .conn.offline .dot{background:var(--red)}
+  .conn.connecting .dot{background:var(--amber);animation:blink 1s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(63,165,100,.45)}70%{box-shadow:0 0 0 7px rgba(63,165,100,0)}100%{box-shadow:0 0 0 0 rgba(63,165,100,0)}}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+  .body{padding:14px 20px 20px;flex:1;overflow-y:auto}
+  .body::-webkit-scrollbar{width:0}
+  .mark{width:46px;height:46px;border-radius:50%;background:var(--sage);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+  .mark.light{background:#fff;color:var(--sage);box-shadow:var(--shadow-sm)}
+  .view{display:none;flex-direction:column;height:100%}
+  .view.active{display:flex;animation:viewIn .5s cubic-bezier(.22,1,.36,1)}
+  @keyframes viewIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  .rise{opacity:0;animation:rise .55s cubic-bezier(.22,1,.36,1) forwards}
+  @keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+  .moisture .big{transition:color .4s}
+  .tile.action{transition:background .5s}
+  .cn-top{padding:6px 4px 0}
+  .progress{display:flex;gap:8px;margin-bottom:34px}
+  .progress span{height:3px;border-radius:3px;flex:1;background:var(--line)}
+  .progress span.on{background:var(--sage)}
+  .eyebrow{font-size:11px;letter-spacing:.14em;font-weight:600;color:var(--ink-soft);text-transform:uppercase;margin-bottom:14px}
+  #viewConnect h1{font-size:44px;line-height:1.02;font-weight:500;letter-spacing:-.02em}
+  .cn-img{flex:1;margin:22px 0;border-radius:24px;background:linear-gradient(160deg,rgba(75,99,80,.04),rgba(75,99,80,.16)),var(--sage-tint);display:flex;align-items:center;justify-content:center;position:relative}
+  .cn-plant{width:60%;height:70%;display:flex;align-items:flex-end;justify-content:center}
+  .cn-status{display:flex;align-items:center;gap:14px;background:var(--card);border-radius:40px;padding:12px;box-shadow:var(--shadow-sm)}
+  .cn-status .spinner{width:44px;height:44px;border-radius:50%;background:var(--sage-tint);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .cn-status .spinner svg{animation:spin 1.1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .cn-status .txt .a{font-size:15px;font-weight:600}
+  .cn-status .txt .b{font-size:12px;color:var(--ink-soft)}
+  .cn-status.ok .spinner{background:#e2f0e7}
+  .cn-status.ok .spinner svg{animation:none}
+  .nav{background:var(--dark);border-radius:28px;padding:16px 18px 20px;margin-bottom:16px;color:#fff}
+  .nav-row{display:flex;align-items:center;justify-content:space-between}
+  .nav-tabs{display:flex;gap:20px;margin-top:18px;font-size:15px;color:rgba(255,255,255,.5);font-weight:500}
+  .nav-tabs .active{color:#fff;position:relative}
+  .nav-tabs .active::after{content:"";position:absolute;left:50%;bottom:-14px;transform:translateX(-50%);width:5px;height:5px;border-radius:50%;background:#fff}
+  .nav-tabs .muted{opacity:.4;cursor:not-allowed}
+  .pot-card{border-radius:var(--radius);padding:20px;margin-bottom:16px;position:relative;overflow:hidden;min-height:150px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:var(--shadow-sm);cursor:pointer;transition:transform .15s}
+  .pot-card:hover{transform:translateY(-2px)}
+  .pot-card.lite{background:var(--card)}
+  .pot-card.dark{background:var(--sage);color:#fff}
+  .pot-head{display:flex;align-items:center;gap:10px}
+  .drop{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--sage-tint);color:var(--sage);flex-shrink:0}
+  .dark .drop{background:rgba(255,255,255,.18);color:#fff}
+  .pot-head .lbl{font-size:13px;font-weight:600;line-height:1.15}
+  .pot-head .lbl small{display:block;font-weight:400;color:var(--ink-soft);font-size:12px}
+  .dark .pot-head .lbl small{color:rgba(255,255,255,.7)}
+  .chip{margin-left:auto;font-size:11px;font-weight:600;background:var(--sage-tint);color:var(--sage);padding:6px 12px;border-radius:20px}
+  .dark .chip{background:rgba(255,255,255,.18);color:#fff}
+  .pot-grow h2{font-family:'Fraunces',serif;font-size:34px;font-weight:500;line-height:1;margin-bottom:4px}
+  .pot-grow .mlabel{font-size:12px;opacity:.75}
+  .pot-thumb{position:absolute;right:16px;bottom:16px;width:118px;height:118px;border-radius:20px;background:linear-gradient(150deg,rgba(255,255,255,.5),rgba(75,99,80,.12));display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
+  .dark .pot-thumb{background:linear-gradient(150deg,rgba(255,255,255,.22),rgba(255,255,255,.05))}
+  .add-btn{display:flex;align-items:center;gap:14px;background:var(--card);border:none;border-radius:40px;padding:10px;width:100%;cursor:pointer;font-family:inherit;font-size:15px;font-weight:600;color:var(--ink);box-shadow:var(--shadow-sm)}
+  .add-btn .ic{width:42px;height:42px;border-radius:50%;background:var(--sage-tint);color:var(--sage);display:flex;align-items:center;justify-content:center;font-size:22px}
+  .det-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}
+  .back{background:none;border:none;font-size:24px;color:var(--sage);cursor:pointer;padding:2px 10px;line-height:1}
+  .det-eyebrow{font-size:11px;letter-spacing:.14em;font-weight:600;color:var(--ink-soft);text-transform:uppercase}
+  .moisture{display:flex;align-items:flex-start;gap:16px;margin-bottom:4px}
+  .moisture .big{font-family:'Fraunces',serif;font-size:92px;font-weight:400;line-height:.85;letter-spacing:-.03em}
+  .moisture .pct{font-family:'Fraunces',serif;font-size:32px;font-weight:400;margin-top:6px}
+  .det-pot-thumb{margin-left:auto;width:92px;height:116px;border-radius:20px;background:linear-gradient(150deg,rgba(255,255,255,.6),rgba(75,99,80,.14));display:flex;align-items:flex-end;justify-content:center;overflow:hidden;flex-shrink:0}
+  .sub{font-size:13px;color:var(--ink-soft);margin-bottom:22px}
+  .card{background:var(--card);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow-sm);margin-bottom:14px}
+  .sched-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
+  .sched-head .t{font-size:15px;font-weight:600}
+  .sched-head .d{font-size:12px;color:var(--ink-soft);margin-top:2px}
+  .week{display:flex;justify-content:space-between;gap:4px}
+  .day{flex:1;text-align:center;padding:8px 0;border-radius:14px;font-size:13px;font-weight:600}
+  .day small{display:block;font-size:10px;color:var(--ink-soft);font-weight:500;margin-top:3px}
+  .day.on{background:var(--sage);color:#fff}
+  .day.on small{color:rgba(255,255,255,.8)}
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+  .tile{border-radius:var(--radius);padding:18px;min-height:118px;display:flex;flex-direction:column;justify-content:space-between}
+  .tile.dark{background:var(--dark);color:#fff}
+  .tile.action{background:var(--sage);color:#fff}
+  .tile .th{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;opacity:.9}
+  .tile .tv{font-family:'Fraunces',serif;font-size:32px;font-weight:400}
+  .tile .tv span{font-size:15px;opacity:.7}
+  .action .act-verb{font-family:'Fraunces',serif;font-size:23px;font-weight:500;line-height:1.05}
+  .action .act-when{font-size:12px;opacity:.85;margin-top:4px}
+  .action.warn{background:var(--amber)}
+  .action.urgent{background:var(--red)}
+  .dock{display:flex;gap:12px;align-items:center;margin-top:auto;padding-top:6px}
+  .dock .d-main{width:62px;height:46px;border-radius:24px;background:var(--sage);color:#fff;display:flex;align-items:center;justify-content:center}
+  .dock .d-ic{width:46px;height:46px;border-radius:50%;background:var(--card);box-shadow:var(--shadow-sm);display:flex;align-items:center;justify-content:center;color:var(--sage)}
+  svg{display:block}
+</style>
+</head>
+<body>
+<div class="phone"><div class="screen">
+  <div class="statusbar">
+    <span id="clock">9:41</span>
+    <span class="conn connecting" id="conn"><span class="dot"></span><span id="connTxt">Connecting to IVY…</span></span>
+  </div>
+
+  <div class="view active body" id="viewConnect">
+    <div class="cn-top">
+      <div class="progress"><span class="on"></span><span></span><span></span></div>
+      <div class="eyebrow">Setting up your pot</div>
+      <h1 class="display">Connect<br>to IVY</h1>
+    </div>
+    <div class="cn-img"><div class="cn-plant" data-ph></div></div>
+    <div class="cn-status" id="cnStatus">
+      <div class="spinner" id="cnSpin">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4b6350" stroke-width="2.5" stroke-linecap="round"><path d="M12 3 a9 9 0 1 0 9 9"/></svg>
+      </div>
+      <div class="txt">
+        <div class="a" id="cnA">Connecting to IVY…</div>
+        <div class="b" id="cnB">Waiting for the pot to reach the cloud</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="view body" id="viewPots">
+    <div class="nav">
+      <div class="nav-row"><div class="mark">✿</div><div class="mark light">≋</div></div>
+      <div class="nav-tabs"><span class="muted">Grass</span><span class="muted">Bonsai</span><span class="active">Pots</span><span class="muted">Flowers</span></div>
+    </div>
+    <div class="pot-card lite" onclick="showDetail()">
+      <div class="pot-head"><div class="drop">💧</div><div class="lbl">Moisture<small>IVY · Pot 01</small></div><div class="chip" id="chip1">Connected</div></div>
+      <div class="pot-grow"><h2 class="display"><span id="card1Moist">58</span>%</h2><div class="mlabel">Current soil moisture</div></div>
+      <div class="pot-thumb"><div class="cn-plant" data-ph></div></div>
+    </div>
+    <div class="pot-card dark" onclick="showDetail()">
+      <div class="pot-head"><div class="drop">💧</div><div class="lbl">Moisture<small>IVY · Pot 02</small></div><div class="chip">Connected</div></div>
+      <div class="pot-grow"><h2 class="display"><span id="card2Moist">41</span>%</h2><div class="mlabel">Current soil moisture</div></div>
+      <div class="pot-thumb"><div class="cn-plant" data-ph></div></div>
+    </div>
+    <button class="add-btn"><span class="ic">+</span> Add a new pot</button>
+  </div>
+
+  <div class="view body" id="viewDetail">
+    <div class="det-top"><button class="back" onclick="showPots()">‹</button><div class="mark light">≋</div></div>
+    <div class="det-eyebrow">Your pot · IVY 01</div>
+    <div class="moisture"><div><span class="big" id="moistBig">58</span><span class="pct">%</span></div><div class="det-pot-thumb"><div class="cn-plant" data-ph></div></div></div>
+    <div class="sub">Current soil moisture</div>
+    <div class="card">
+      <div class="sched-head"><div><div class="t">Watering schedule</div><div class="d">Today is 12.10.2024</div></div><div class="drop">💧</div></div>
+      <div class="week" id="week"></div>
+    </div>
+    <div class="tiles">
+      <div class="tile dark"><div class="th">🌡 Temperature</div><div class="tv" id="tempTile">22<span>°C</span></div></div>
+      <div class="tile action" id="actionTile"><div class="th">✨ What to do</div><div><div class="act-verb" id="actVerb">All good</div><div class="act-when" id="actWhen">Water in ~6h</div></div></div>
+    </div>
+    <div class="dock"><div class="d-main">▬▬</div><div class="d-ic">≋</div><div class="d-ic">🌬</div><div class="d-ic">⬡</div></div>
+  </div>
+</div></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDJhc6Ssdoxvbyq5iuk6z71FYd8VupltIs",
+    authDomain: "intelligent-vegetation-yield.firebaseapp.com",
+    databaseURL: "https://intelligent-vegetation-yield-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "intelligent-vegetation-yield",
+    storageBucket: "intelligent-vegetation-yield.firebasestorage.app",
+    messagingSenderId: "387446076558",
+    appId: "1:387446076558:web:43b9d813c12f092b84c5df"
+  };
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // Listen to the pot's live values. IVY firmware writes to /pot/current.
+  onValue(ref(db, 'pot/current'), snap => {
+    const v = snap.val();
+    if(!v) return;
+    if(typeof window.ivyRender !== 'function') return;   // app not ready yet
+    if(!window.ivyConnected) window.ivyOnConnected();   // trips the connect gate
+    window.ivyLastSeen = Date.now();
+    window.ivyRender({
+      moisture: Math.round(v.bottom ?? v.moisture ?? 0),
+      temp: (v.soilTempC != null) ? Number(v.soilTempC).toFixed(1) : '--',
+      hoursToWater: v.hoursToWater ?? -1
+    });
+  });
+</script>
+<script>
+  const plantSVG=`<svg viewBox="0 0 120 140" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg"><g stroke="#4b6350" stroke-width="3" stroke-linecap="round" fill="#6f8a74" fill-opacity="0.35"><path d="M60 120 C40 92 34 60 44 30 C52 60 56 92 60 120Z"/><path d="M60 120 C80 92 86 60 76 30 C68 60 64 92 60 120Z"/><path d="M60 120 C46 96 30 78 18 66 C40 76 54 96 60 120Z"/><path d="M60 120 C74 96 90 78 102 66 C80 76 66 96 60 120Z"/><path d="M60 122 C58 96 60 70 60 44 C62 70 62 96 60 122Z"/></g><path d="M34 118 h52 l-6 16 h-40 z" fill="#fff" stroke="#d9e0d9" stroke-width="2"/></svg>`;
+  document.querySelectorAll('[data-ph]').forEach(el=>el.innerHTML=plantSVG);
+
+  const days=[['08','S'],['09','M'],['11','T'],['12','W'],['13','T'],['14','F'],['15','S']];
+  document.getElementById('week').innerHTML=days.map((d,i)=>`<div class="day ${i===2?'on':''}">${d[0]}<small>${d[1]}</small></div>`).join('');
+
+  function show(id){
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    const v=document.getElementById(id); v.classList.add('active');
+    // staggered entrance for direct children cards/tiles
+    const items=v.querySelectorAll('.pot-card,.add-btn,.card,.tiles,.moisture,.det-eyebrow,.sub');
+    items.forEach((el,i)=>{el.classList.remove('rise');void el.offsetWidth;el.style.animationDelay=(i*70)+'ms';el.classList.add('rise');});
+  }
+  function showPots(){show('viewPots');}
+  function showDetail(){show('viewDetail');}
+
+  // smooth number count-up
+  function countTo(el,target){
+    const from=parseInt(el.textContent)||0;
+    if(from===target)return;
+    const start=performance.now(),dur=600;
+    function step(t){
+      const p=Math.min(1,(t-start)/dur);
+      const eased=1-Math.pow(1-p,3);
+      el.textContent=Math.round(from+(target-from)*eased);
+      if(p<1)requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}
+  tick();setInterval(tick,10000);
+
+  const STALE_MS=30000;
+  window.ivyConnected=false;
+  window.ivyLastSeen=0;
+  function setConn(state){
+    const c=document.getElementById('conn'),t=document.getElementById('connTxt');
+    c.className='conn '+state;
+    t.textContent=state==='online'?'Connected to cloud':state==='offline'?'Pot offline':'Connecting to IVY…';
+  }
+  window.ivyOnConnected=function(){
+    window.ivyConnected=true;window.ivyLastSeen=Date.now();setConn('online');
+    const s=document.getElementById('cnStatus');s.classList.add('ok');
+    document.getElementById('cnSpin').innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3fa564" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 L9 17 l-5-5"/></svg>';
+    document.getElementById('cnA').textContent='Connected to IVY';
+    document.getElementById('cnB').textContent='Pot is online and sending data';
+    setTimeout(()=>show('viewPots'),1100);
+  };
+
+  function updateAction(moisture,hoursToWater){
+    const tile=document.getElementById('actionTile'),verb=document.getElementById('actVerb'),when=document.getElementById('actWhen');
+    tile.classList.remove('warn','urgent');
+    if(moisture<20){tile.classList.add('urgent');verb.textContent='Water now';when.textContent='Soil is too dry';}
+    else if(moisture<40){tile.classList.add('warn');verb.textContent='Water soon';when.textContent=hoursToWater>0?`~${(+hoursToWater).toFixed(1)}h left`:'Getting dry';}
+    else if(moisture>80){tile.classList.add('warn');verb.textContent='Ease off';when.textContent='Soil is very wet';}
+    else{verb.textContent='All good';when.textContent=hoursToWater>0?`Water in ~${(+hoursToWater).toFixed(0)}h`:'Roots are happy';}
+  }
+
+  window.ivyRender=function(d){
+    countTo(document.getElementById('card1Moist'),d.moisture);
+    countTo(document.getElementById('moistBig'),d.moisture);
+    document.getElementById('tempTile').innerHTML=d.temp+'<span>°C</span>';
+    const big=document.getElementById('moistBig');
+    big.style.color=d.moisture<20?'var(--red)':d.moisture<40?'var(--amber)':d.moisture>80?'#3f7aa5':'var(--ink)';
+    updateAction(d.moisture,d.hoursToWater);
+  };
+
+  // freshness watchdog: if the pot stops reporting, flag offline
+  setInterval(()=>{
+    if(window.ivyConnected && Date.now()-window.ivyLastSeen>STALE_MS){
+      window.ivyConnected=false; setConn('offline');
+    }
+  },1000);
+
+  // hint if the ESP hasn't reported within 15s of load
+  setTimeout(()=>{
+    if(!window.ivyConnected){
+      document.getElementById('cnB').textContent='Still waiting — is IVY powered and on WiFi?';
+    }
+  },15000);
+</script>
+</body>
+</html>
