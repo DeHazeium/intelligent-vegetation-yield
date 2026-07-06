@@ -79,7 +79,13 @@
   .dark .chip{background:rgba(255,255,255,.18);color:#fff}
   .pot-grow h2{font-family:'Fraunces',serif;font-size:34px;font-weight:500;line-height:1;margin-bottom:4px}
   .pot-grow .mlabel{font-size:12px;opacity:.75}
-  .pot-thumb{position:absolute;right:16px;bottom:16px;width:118px;height:118px;border-radius:20px;background:linear-gradient(150deg,rgba(255,255,255,.5),rgba(75,99,80,.12));display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
+  .mini-strip{display:flex;gap:8px;margin-top:14px;position:relative;z-index:2}
+  .mini{background:var(--sage-tint);border-radius:14px;padding:8px 10px;flex:1;display:flex;flex-direction:column;gap:1px;min-width:0}
+  .dark .mini{background:rgba(255,255,255,.16)}
+  .mini .mv{font-size:16px;font-weight:700;font-family:'Fraunces',serif}
+  .mini .ml{font-size:10px;color:var(--ink-soft);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .dark .mini .ml{color:rgba(255,255,255,.7)}
+  .pot-thumb{position:absolute;right:16px;top:16px;width:92px;height:92px;border-radius:20px;background:linear-gradient(150deg,rgba(255,255,255,.5),rgba(75,99,80,.12));display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
   .dark .pot-thumb{background:linear-gradient(150deg,rgba(255,255,255,.22),rgba(255,255,255,.05))}
   .add-btn{display:flex;align-items:center;gap:14px;background:var(--card);border:none;border-radius:40px;padding:10px;width:100%;cursor:pointer;font-family:inherit;font-size:15px;font-weight:600;color:var(--ink);box-shadow:var(--shadow-sm)}
   .add-btn .ic{width:42px;height:42px;border-radius:50%;background:var(--sage-tint);color:var(--sage);display:flex;align-items:center;justify-content:center;font-size:22px}
@@ -92,14 +98,13 @@
   .det-pot-thumb{margin-left:auto;width:92px;height:116px;border-radius:20px;background:linear-gradient(150deg,rgba(255,255,255,.6),rgba(75,99,80,.14));display:flex;align-items:flex-end;justify-content:center;overflow:hidden;flex-shrink:0}
   .sub{font-size:13px;color:var(--ink-soft);margin-bottom:22px}
   .card{background:var(--card);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow-sm);margin-bottom:14px}
-  .sched-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
-  .sched-head .t{font-size:15px;font-weight:600}
-  .sched-head .d{font-size:12px;color:var(--ink-soft);margin-top:2px}
-  .week{display:flex;justify-content:space-between;gap:4px}
-  .day{flex:1;text-align:center;padding:8px 0;border-radius:14px;font-size:13px;font-weight:600}
-  .day small{display:block;font-size:10px;color:var(--ink-soft);font-weight:500;margin-top:3px}
-  .day.on{background:var(--sage);color:#fff}
-  .day.on small{color:rgba(255,255,255,.8)}
+  .depth-row{display:flex;gap:18px}
+  .depth{flex:1}
+  .depth .dh{font-size:12px;color:var(--ink-soft);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+  .depth .dv{font-family:'Fraunces',serif;font-size:28px;font-weight:500;margin-bottom:8px}
+  .dbar{height:7px;border-radius:6px;background:var(--sage-tint);overflow:hidden}
+  .dbar i{display:block;height:100%;border-radius:6px;background:var(--sage);transition:width .6s cubic-bezier(.22,1,.36,1)}
+  .grad-note{font-size:12px;color:var(--ink-soft);margin-top:14px;line-height:1.5}
   .tiles{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
   .tile{border-radius:var(--radius);padding:18px;min-height:118px;display:flex;flex-direction:column;justify-content:space-between}
   .tile.dark{background:var(--dark);color:#fff}
@@ -150,6 +155,11 @@
     <div class="pot-card lite" onclick="showDetail()">
       <div class="pot-head"><div class="drop">💧</div><div class="lbl">Moisture<small>IVY · Pot 01</small></div><div class="chip" id="chip1">Connected</div></div>
       <div class="pot-grow"><h2 class="display"><span id="card1Moist">58</span>%</h2><div class="mlabel">Current soil moisture</div></div>
+      <div class="mini-strip">
+        <div class="mini"><span class="mv" id="cardTop">45</span><span class="ml">Surface</span></div>
+        <div class="mini"><span class="mv" id="cardBot">58</span><span class="ml">Root</span></div>
+        <div class="mini"><span class="mv" id="cardTemp">22°</span><span class="ml">Temp</span></div>
+      </div>
       <div class="pot-thumb"><div class="cn-plant" data-ph></div></div>
     </div>
     <button class="add-btn"><span class="ic">+</span> Add a new pot</button>
@@ -161,8 +171,19 @@
     <div class="moisture"><div><span class="big" id="moistBig">58</span><span class="pct">%</span></div><div class="det-pot-thumb"><div class="cn-plant" data-ph></div></div></div>
     <div class="sub">Current soil moisture</div>
     <div class="card">
-      <div class="sched-head"><div><div class="t">Watering schedule</div><div class="d">Today is 12.10.2024</div></div><div class="drop">💧</div></div>
-      <div class="week" id="week"></div>
+      <div class="depth-row">
+        <div class="depth">
+          <div class="dh">Surface</div>
+          <div class="dv"><span id="detTop">45</span>%</div>
+          <div class="dbar"><i id="detTopBar" style="width:45%"></i></div>
+        </div>
+        <div class="depth">
+          <div class="dh">Root zone</div>
+          <div class="dv"><span id="detBot">58</span>%</div>
+          <div class="dbar"><i id="detBotBar" style="width:58%"></i></div>
+        </div>
+      </div>
+      <div class="grad-note" id="gradNote">Roots hold more water than the surface — healthy.</div>
     </div>
     <div class="tiles">
       <div class="tile dark"><div class="th">🌡 Temperature</div><div class="tv" id="tempTile">22<span>°C</span></div></div>
@@ -197,6 +218,7 @@
     window.ivyLastSeen = Date.now();
     window.ivyRender({
       moisture: Math.round(v.bottom ?? v.moisture ?? 0),
+      surface: Math.round(v.top ?? 0),
       temp: (v.soilTempC != null) ? Number(v.soilTempC).toFixed(1) : '--',
       hoursToWater: v.hoursToWater ?? -1
     });
@@ -205,9 +227,6 @@
 <script>
   const plantSVG=`<svg viewBox="0 0 120 140" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg"><g stroke="#4b6350" stroke-width="3" stroke-linecap="round" fill="#6f8a74" fill-opacity="0.35"><path d="M60 120 C40 92 34 60 44 30 C52 60 56 92 60 120Z"/><path d="M60 120 C80 92 86 60 76 30 C68 60 64 92 60 120Z"/><path d="M60 120 C46 96 30 78 18 66 C40 76 54 96 60 120Z"/><path d="M60 120 C74 96 90 78 102 66 C80 76 66 96 60 120Z"/><path d="M60 122 C58 96 60 70 60 44 C62 70 62 96 60 122Z"/></g><path d="M34 118 h52 l-6 16 h-40 z" fill="#fff" stroke="#d9e0d9" stroke-width="2"/></svg>`;
   document.querySelectorAll('[data-ph]').forEach(el=>el.innerHTML=plantSVG);
-
-  const days=[['08','S'],['09','M'],['11','T'],['12','W'],['13','T'],['14','F'],['15','S']];
-  document.getElementById('week').innerHTML=days.map((d,i)=>`<div class="day ${i===2?'on':''}">${d[0]}<small>${d[1]}</small></div>`).join('');
 
   function show(id){
     document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
@@ -263,11 +282,34 @@
   }
 
   window.ivyRender=function(d){
+    const surface = d.surface ?? 0;
+    // hero + main moisture (root zone)
     countTo(document.getElementById('card1Moist'),d.moisture);
     countTo(document.getElementById('moistBig'),d.moisture);
-    document.getElementById('tempTile').innerHTML=d.temp+'<span>°C</span>';
     const big=document.getElementById('moistBig');
     big.style.color=d.moisture<20?'var(--red)':d.moisture<40?'var(--amber)':d.moisture>80?'#3f7aa5':'var(--ink)';
+
+    // card mini-strip
+    document.getElementById('cardTop').textContent=surface;
+    document.getElementById('cardBot').textContent=d.moisture;
+    document.getElementById('cardTemp').textContent=d.temp+'°';
+
+    // detail depth breakdown
+    countTo(document.getElementById('detTop'),surface);
+    countTo(document.getElementById('detBot'),d.moisture);
+    document.getElementById('detTopBar').style.width=surface+'%';
+    document.getElementById('detBotBar').style.width=d.moisture+'%';
+
+    // gradient interpretation note
+    const note=document.getElementById('gradNote');
+    const grad=d.moisture-surface;
+    if(grad>20) note.textContent='Roots hold more water than the surface — healthy.';
+    else if(grad<-15) note.textContent='Surface wetter than roots — water may not have soaked down.';
+    else if(d.moisture>80) note.textContent='Both layers very wet — check drainage.';
+    else note.textContent='Surface and root moisture are close.';
+
+    // temperature + AI action
+    document.getElementById('tempTile').innerHTML=d.temp+'<span>°C</span>';
     updateAction(d.moisture,d.hoursToWater);
   };
 
