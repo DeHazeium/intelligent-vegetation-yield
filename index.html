@@ -322,48 +322,111 @@
     else{verb.textContent='All good';when.textContent=hoursToWater>0?`Water in ~${(+hoursToWater).toFixed(0)}h`:'Roots are happy';}
   }
 
-  // ---- AI situation analysis: reason over gradient + temperature + rate ----
-  function analyzeSituation(root, surface, tempNum){
-    const grad = root - surface;          // + = root wetter than surface
-    const hot  = tempNum != null && tempNum >= 30;
-    const cold = tempNum != null && tempNum <= 15;
-    let level='good', title='', body='';
+  // ---- short-term memory so the analysis can see CHANGE over time ----
+  const ivyTrend = { top:[], bot:[], t:[] };   // recent samples (last ~60s)
+  function pushTrend(top, bot){
+    const now=Date.now();
+    ivyTrend.top.push(top); ivyTrend.bot.push(bot); ivyTrend.t.push(now);
+    // keep only last 60 seconds
+    while(ivyTrend.t.length && now-ivyTrend.t[0]>60000){
+      ivyTrend.top.shift(); ivyTrend.bot.shift(); ivyTrend.t.shift();
+    }
+  }
+  // change over the window (now minus oldest sample)
+  function delta(arr){ return arr.length>=2 ? arr[arr.length-1]-arr[0] : 0; }
 
+  // ---- AI situation analysis ----
+  // Reasons over: root level, surface level, the gradient between them,
+  // whether water is moving (percolation), and soil temperature.
+  function analyzeSituation(root, surface, tempNum){
+    const grad = root - surface;              // + = root wetter than surface
+    const dBot = delta(ivyTrend.bot);         // root change over last minute
+    const dTop = delta(ivyTrend.top);         // surface change over last minute
+    const samples = ivyTrend.t.length;
+    const settled = samples>=6;               // enough history (~12s+) to judge movement
+
+    const hot   = tempNum!=null && tempNum>=30;
+    const warm  = tempNum!=null && tempNum>=26 && tempNum<30;
+    const cold  = tempNum!=null && tempNum<=15;
+    const tStr  = tempNum!=null ? Math.round(tempNum)+'°C' : 'current temperature';
+
+    let level='good', title='', body='', tips=[];
+
+    // ---------- 1. CRITICAL: root too dry ----------
     if(root < 20){
       level='alert'; title='Roots are running dry';
-      body='The root zone is low, so the plant can no longer draw enough water. Water it now, slowly, until moisture rises through the soil.';
+      body=`The root zone is at ${root}% — too low for the plant to draw enough water. Water now, slowly and evenly, until moisture climbs through the soil.`;
+      if(hot) tips.push(`It's hot (${tStr}), so it will dry out again quickly — check it more often today.`);
     }
-    else if(root > 80){
+    // ---------- 2. CRITICAL: waterlogged (both genuinely high) ----------
+    else if(root > 80 && surface > 70){
       level='alert'; title='Soil is waterlogged';
-      body='Both layers are very wet. Roots sitting in saturated soil can suffocate — hold off watering and make sure the pot drains freely.';
+      body=`Both layers are saturated (surface ${surface}%, root ${root}%). Roots sitting in soaked soil can suffocate and rot.`;
+      tips.push('Stop watering and let it drain. If water pools, improve drainage or the pot may be holding too much.');
+      if(cold) tips.push(`It's cool (${tStr}), so wet soil will dry very slowly — be patient before watering again.`);
     }
-    else if(grad > 25 && root >= 40){
-      level='good'; title='Surface dry, roots healthy';
-      body = hot
-        ? `The top layer looks dry, but that's expected — at ${Math.round(tempNum)}°C the surface water evaporates fast while the root zone still holds plenty. No need to water yet.`
-        : 'The surface has dried out but the root zone is still well supplied. This is a healthy state — the plant is drinking from below, so no watering needed.';
+    // ---------- 3. Just watered from the TOP, still soaking down ----------
+    else if(surface > 70 && root < 55){
+      // water is on the surface but hasn't reached the roots yet
+      if(!settled){
+        level='watch'; title='Water is soaking in…';
+        body=`The surface just got wet (${surface}%) but the root zone is still at ${root}%. Give it a moment — water needs time to travel down.`;
+        tips.push('Watching whether it reaches the roots over the next minute.');
+      } else if(dBot > 3){
+        level='good'; title='Water is reaching the roots';
+        body=`The surface is wet and the root zone is now rising (up ${Math.round(dBot)}% recently). The water is soaking down properly — good.`;
+      } else {
+        level='alert'; title='Water isn\'t soaking down';
+        body=`The surface has been wet (${surface}%) for a while but the root zone (${root}%) isn't rising. The water is pooling on top instead of reaching the roots.`;
+        tips.push('The soil may be compacted, hydrophobic (bone-dry and repelling water), or the pot is watered too fast. Try watering slower, or loosen the topsoil.');
+      }
     }
+    // ---------- 4. Surface wetter than roots, but not extreme ----------
     else if(grad < -15){
-      level='watch'; title='Water sitting on top';
-      body='The surface is wetter than the roots, which means recent water hasn\'t soaked down. Water more slowly next time, or check whether the soil has become compacted or hydrophobic.';
+      level='watch'; title='Surface wetter than roots';
+      body=`The top (${surface}%) is wetter than the root zone (${root}%). Recent watering is staying near the surface.`;
+      tips.push('Water more slowly and deeply so it reaches the roots, not just the top layer.');
     }
+    // ---------- 5. HEALTHY: dry surface, good roots (your example) ----------
+    else if(grad > 22 && root >= 40){
+      level='good'; title='Surface dry, roots healthy';
+      if(hot){
+        body=`The top looks dry (${surface}%), but that's normal at ${tStr} — surface water evaporates fast while the root zone still holds ${root}%. The plant is drinking from below.`;
+      } else if(warm){
+        body=`A dry surface (${surface}%) over a healthy root zone (${root}%) is expected in warm weather. No need to water — the roots are well supplied.`;
+      } else {
+        body=`The surface has dried but the root zone is still at ${root}%. This is a healthy pot — the plant draws from below, so hold off watering.`;
+      }
+    }
+    // ---------- 6. Drying toward thirsty ----------
     else if(root < 40){
       level='watch'; title='Drying toward thirsty';
-      body = hot
-        ? `Moisture is dropping and it's warm (${Math.round(tempNum)}°C), which speeds evaporation. Plan to water soon.`
-        : 'The root zone is edging toward the dry side. Keep an eye on it and water before it drops further.';
+      const dropping = settled && dBot < -2;
+      body=`The root zone is at ${root}% and edging toward the dry side${dropping?', and still falling':''}.`;
+      if(hot||warm) tips.push(`It's ${tStr}, which speeds up drying — plan to water soon.`);
+      else tips.push('Keep an eye on it and water before it drops much further.');
     }
+    // ---------- 7. Balanced / healthy ----------
     else {
       level='good'; title='Everything looks balanced';
-      body = cold
-        ? `Moisture is in a healthy range. It's cool (${Math.round(tempNum)}°C), so the soil will dry slowly — water sparingly.`
-        : 'Surface and root moisture are both in a comfortable range. The plant is happy; nothing to do right now.';
+      body=`Surface (${surface}%) and root (${root}%) moisture are both in a comfortable range.`;
+      if(cold) tips.push(`It's cool (${tStr}), so the soil dries slowly — water sparingly.`);
+      else if(hot) tips.push(`It's warm (${tStr}); moisture may drop faster than usual, so check again later.`);
+      else tips.push('The plant is happy — nothing to do right now.');
     }
-    return {level,title,body};
+
+    // ---------- standalone temperature flags (added to any state) ----------
+    if(tempNum!=null){
+      if(tempNum>=35) tips.push(`Soil is very hot (${tStr}) — heat stress is possible. Some afternoon shade would help.`);
+      else if(tempNum<=10) tips.push(`Soil is very cold (${tStr}) — roots take up water poorly in the cold, so avoid overwatering.`);
+    }
+
+    return {level, title, body:(body+(tips.length?' '+tips.join(' '):''))};
   }
 
   window.ivyRender=function(d){
     const surface = d.surface ?? 0;
+    pushTrend(surface, d.moisture);   // feed short-term memory for percolation logic
     // hero + main moisture (root zone)
     countTo(document.getElementById('card1Moist'),d.moisture);
     countTo(document.getElementById('moistBig'),d.moisture);
