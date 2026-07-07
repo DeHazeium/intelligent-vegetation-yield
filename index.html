@@ -133,6 +133,24 @@
   .ins-body{font-size:13px;color:var(--ink-soft);line-height:1.55}
   /* pump control */
   .pump-card{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow-sm);margin-top:14px}
+  /* auto-watering toggle button - the hero control */
+  .auto-btn{display:flex;align-items:center;justify-content:space-between;width:100%;border:none;border-radius:18px;padding:14px 16px;background:var(--sage-tint);cursor:pointer;font-family:inherit;transition:background .3s;margin-bottom:12px}
+  .auto-btn.on{background:linear-gradient(135deg,#4b6350,#5f7d64)}
+  .auto-left{display:flex;align-items:center;gap:12px}
+  .auto-ic{width:38px;height:38px;border-radius:12px;background:rgba(75,99,80,.12);color:var(--sage);display:flex;align-items:center;justify-content:center;transition:all .3s}
+  .auto-ic svg{width:20px;height:20px}
+  .auto-btn.on .auto-ic{background:rgba(255,255,255,.2);color:#fff;animation:spin-slow 8s linear infinite}
+  @keyframes spin-slow{to{transform:rotate(360deg)}}
+  .auto-txt{display:flex;flex-direction:column;text-align:left;line-height:1.3}
+  .auto-txt b{font-size:15px;font-weight:600;color:var(--ink);transition:color .3s}
+  .auto-txt small{font-size:11px;color:var(--ink-soft);transition:color .3s}
+  .auto-btn.on .auto-txt b,.auto-btn.on .auto-txt small{color:#fff}
+  .auto-btn.on .auto-txt small{color:rgba(255,255,255,.85)}
+  .auto-switch{position:relative;width:46px;height:28px;border-radius:20px;background:rgba(0,0,0,.12);transition:background .3s;flex-shrink:0}
+  .auto-switch::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.25);transition:transform .3s}
+  .auto-btn.on .auto-switch{background:rgba(255,255,255,.35)}
+  .auto-btn.on .auto-switch::after{transform:translateX(18px)}
+  /* manual water button */
   .water-btn{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;border:none;border-radius:18px;padding:15px;background:var(--sage);color:#fff;font-family:inherit;font-size:16px;font-weight:600;cursor:pointer;transition:background .2s,transform .15s}
   .water-btn:hover{background:#3e5443;transform:translateY(-1px)}
   .water-btn:active{transform:translateY(0)}
@@ -242,10 +260,21 @@
       <p class="ins-body" id="insBody">Waiting for the first data from IVY.</p>
     </div>
     <div class="pump-card">
+      <button class="auto-btn" id="autoBtn" onclick="toggleAuto()">
+        <span class="auto-left">
+          <span class="auto-ic" id="autoIc">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>
+          </span>
+          <span class="auto-txt"><b>Auto-watering</b><small id="autoState">On — waters when dry</small></span>
+        </span>
+        <span class="auto-switch" id="autoSwitch"></span>
+      </button>
+
       <button class="water-btn" id="waterBtn" onclick="togglePump()">
         <span class="wb-ic"><span class="drop-ic"></span></span>
         <span class="wb-txt" id="waterBtnTxt">Water now</span>
       </button>
+
       <label class="test-toggle">
         <span>Test mode <small>(3s pulse)</small></span>
         <input type="checkbox" id="testToggle" onchange="setTestMode(this.checked)">
@@ -290,16 +319,20 @@
   // ---- pump control: website writes commands, ESP reads & acts ----
   window.ivyPumpCmd = (on)=> set(ref(db,'pot/pump/cmd'), on);
   window.ivyTestMode = (on)=> set(ref(db,'pot/pump/test'), on);
+  window.ivyAutoWater = (on)=> set(ref(db,'pot/pump/auto'), on);
 
   // reflect the pump's REAL state (written by the ESP) on the button
   onValue(ref(db,'pot/pump/on'), snap=>{
     const on = snap.val()===true;
     if(window.ivySetPumpUI) window.ivySetPumpUI(on);
   });
-  // keep the test toggle in sync if changed elsewhere
   onValue(ref(db,'pot/pump/test'), snap=>{
     const t = snap.val()===true;
     const el=document.getElementById('testToggle'); if(el) el.checked=t;
+  });
+  onValue(ref(db,'pot/pump/auto'), snap=>{
+    const a = snap.val()!==false;   // default ON
+    if(window.ivySetAutoUI) window.ivySetAutoUI(a);
   });
 </script>
 <script>
@@ -552,21 +585,38 @@
   };
 
   // ---- pump controls (buttons call these) ----
-  let pumpIsOn=false;
+  let pumpIsOn=false, autoIsOn=true;
+
   window.togglePump=function(){
     if(typeof window.ivyPumpCmd!=='function') return;
-    window.ivyPumpCmd(!pumpIsOn);   // write the opposite of current state
+    const want=!pumpIsOn;
+    window.ivySetPumpUI(want, true);   // OPTIMISTIC: update UI instantly (kills perceived latency)
+    window.ivyPumpCmd(want);           // then send command; ESP confirms real state shortly
   };
   window.setTestMode=function(on){
     if(typeof window.ivyTestMode==='function') window.ivyTestMode(on);
   };
-  // called when the ESP reports the pump's real state
-  window.ivySetPumpUI=function(on){
+  window.toggleAuto=function(){
+    if(typeof window.ivyAutoWater!=='function') return;
+    const want=!autoIsOn;
+    window.ivySetAutoUI(want);          // optimistic
+    window.ivyAutoWater(want);
+  };
+
+  // called when the ESP reports the pump's real state (or optimistically)
+  window.ivySetPumpUI=function(on, optimistic){
     pumpIsOn=on;
     const btn=document.getElementById('waterBtn'), txt=document.getElementById('waterBtnTxt');
     if(!btn) return;
     btn.classList.toggle('on',on);
-    txt.textContent = on ? 'Watering… tap to stop' : 'Water now';
+    txt.textContent = on ? (optimistic?'Starting…':'Watering… tap to stop') : 'Water now';
+  };
+  window.ivySetAutoUI=function(on){
+    autoIsOn=on;
+    const btn=document.getElementById('autoBtn'), st=document.getElementById('autoState');
+    if(!btn) return;
+    btn.classList.toggle('on',on);
+    st.textContent = on ? 'On — waters when dry' : 'Off — manual only';
   };
   setInterval(()=>{
     if(window.ivyConnected && Date.now()-window.ivyLastSeen>STALE_MS){
