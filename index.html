@@ -131,6 +131,22 @@
   .insight.alert .ins-badge{color:#9a4b4b;background:#f3e5e5}
   .ins-title{font-size:14px;font-weight:600}
   .ins-body{font-size:13px;color:var(--ink-soft);line-height:1.55}
+  /* pump control */
+  .pump-card{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow-sm);margin-top:14px}
+  .water-btn{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;border:none;border-radius:18px;padding:15px;background:var(--sage);color:#fff;font-family:inherit;font-size:16px;font-weight:600;cursor:pointer;transition:background .2s,transform .15s}
+  .water-btn:hover{background:#3e5443;transform:translateY(-1px)}
+  .water-btn:active{transform:translateY(0)}
+  .water-btn.on{background:#3f7aa5;animation:pumping 1.2s ease-in-out infinite}
+  @keyframes pumping{0%,100%{box-shadow:0 0 0 0 rgba(63,122,165,.4)}50%{box-shadow:0 0 0 8px rgba(63,122,165,0)}}
+  .wb-ic{width:24px;height:24px;display:flex;align-items:center;justify-content:center}
+  .wb-ic .drop-ic{color:#fff;width:20px;height:20px}
+  .test-toggle{display:flex;align-items:center;justify-content:space-between;margin-top:14px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;user-select:none}
+  .test-toggle small{color:var(--ink-soft);font-weight:400}
+  .test-toggle input{display:none}
+  .test-toggle .switch{position:relative;width:44px;height:26px;border-radius:20px;background:var(--line);transition:background .25s;flex-shrink:0}
+  .test-toggle .switch::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .25s}
+  .test-toggle input:checked + .switch{background:var(--amber)}
+  .test-toggle input:checked + .switch::after{transform:translateX(18px)}
   .tiles{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
   .tile{border-radius:var(--radius);padding:18px;min-height:118px;display:flex;flex-direction:column;justify-content:space-between}
   .tile.dark{background:var(--dark);color:#fff}
@@ -225,12 +241,23 @@
       <div class="ins-head"><span class="ins-badge" id="insBadge">Analysis</span><span class="ins-title" id="insTitle">Reading the pot…</span></div>
       <p class="ins-body" id="insBody">Waiting for the first data from IVY.</p>
     </div>
+    <div class="pump-card">
+      <button class="water-btn" id="waterBtn" onclick="togglePump()">
+        <span class="wb-ic"><span class="drop-ic"></span></span>
+        <span class="wb-txt" id="waterBtnTxt">Water now</span>
+      </button>
+      <label class="test-toggle">
+        <span>Test mode <small>(3s pulse)</small></span>
+        <input type="checkbox" id="testToggle" onchange="setTestMode(this.checked)">
+        <span class="switch"></span>
+      </label>
+    </div>
   </div>
 </div></div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDJhc6Ssdoxvbyq5iuk6z71FYd8VupltIs",
@@ -259,6 +286,20 @@
       hoursToWater: v.hoursToWater ?? -1,
       mood: v.mood ?? null
     });
+  });
+  // ---- pump control: website writes commands, ESP reads & acts ----
+  window.ivyPumpCmd = (on)=> set(ref(db,'pot/pump/cmd'), on);
+  window.ivyTestMode = (on)=> set(ref(db,'pot/pump/test'), on);
+
+  // reflect the pump's REAL state (written by the ESP) on the button
+  onValue(ref(db,'pot/pump/on'), snap=>{
+    const on = snap.val()===true;
+    if(window.ivySetPumpUI) window.ivySetPumpUI(on);
+  });
+  // keep the test toggle in sync if changed elsewhere
+  onValue(ref(db,'pot/pump/test'), snap=>{
+    const t = snap.val()===true;
+    const el=document.getElementById('testToggle'); if(el) el.checked=t;
   });
 </script>
 <script>
@@ -510,7 +551,23 @@
     document.getElementById('insBody').textContent=s.body;
   };
 
-  // freshness watchdog: if the pot stops reporting, flag offline
+  // ---- pump controls (buttons call these) ----
+  let pumpIsOn=false;
+  window.togglePump=function(){
+    if(typeof window.ivyPumpCmd!=='function') return;
+    window.ivyPumpCmd(!pumpIsOn);   // write the opposite of current state
+  };
+  window.setTestMode=function(on){
+    if(typeof window.ivyTestMode==='function') window.ivyTestMode(on);
+  };
+  // called when the ESP reports the pump's real state
+  window.ivySetPumpUI=function(on){
+    pumpIsOn=on;
+    const btn=document.getElementById('waterBtn'), txt=document.getElementById('waterBtnTxt');
+    if(!btn) return;
+    btn.classList.toggle('on',on);
+    txt.textContent = on ? 'Watering… tap to stop' : 'Water now';
+  };
   setInterval(()=>{
     if(window.ivyConnected && Date.now()-window.ivyLastSeen>STALE_MS){
       window.ivyConnected=false; setConn('offline');
