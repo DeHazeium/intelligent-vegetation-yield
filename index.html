@@ -316,21 +316,21 @@
       mood: v.mood ?? null
     });
   });
-  // ---- pump control: website writes commands, ESP reads & acts ----
-  window.ivyPumpCmd = (on)=> set(ref(db,'pot/pump/cmd'), on);
-  window.ivyTestMode = (on)=> set(ref(db,'pot/pump/test'), on);
-  window.ivyAutoWater = (on)=> set(ref(db,'pot/pump/auto'), on);
+  // ---- pump control: website writes COMMANDS to /pot/cmd, reads STATUS from /pot/status ----
+  window.ivyPumpCmd = (on)=> set(ref(db,'pot/cmd/water'), on);
+  window.ivyTestMode = (on)=> set(ref(db,'pot/cmd/test'), on);
+  window.ivyAutoWater = (on)=> set(ref(db,'pot/cmd/auto'), on);
 
-  // reflect the pump's REAL state (written by the ESP) on the button
-  onValue(ref(db,'pot/pump/on'), snap=>{
+  // reflect the pump's REAL state (written by the ESP to /pot/status)
+  onValue(ref(db,'pot/status/pumpOn'), snap=>{
     const on = snap.val()===true;
     if(window.ivySetPumpUI) window.ivySetPumpUI(on);
   });
-  onValue(ref(db,'pot/pump/test'), snap=>{
+  onValue(ref(db,'pot/cmd/test'), snap=>{
     const t = snap.val()===true;
     const el=document.getElementById('testToggle'); if(el) el.checked=t;
   });
-  onValue(ref(db,'pot/pump/auto'), snap=>{
+  onValue(ref(db,'pot/cmd/auto'), snap=>{
     const a = snap.val()!==false;   // default ON
     if(window.ivySetAutoUI) window.ivySetAutoUI(a);
   });
